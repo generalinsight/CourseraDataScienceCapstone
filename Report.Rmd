@@ -1,0 +1,212 @@
+---
+title: "Swiftkey Word Prediction Project - Milestone Report"
+author: "generalinsight"
+date: "November 26, 2017"
+output: html_document
+---
+
+## Introduction
+
+The goal of this report is to provide a quick update that the work on the data has progressed and on track to create prediction algorithm. This report explains the exploratory analysis and goals for the eventual app and algorithm. 
+
+This document briefly describes the major features of the data and summarizes plans for creating the prediction algorithm and Shiny app. Sections covered in this report are
+
+ 1. Data: download and access the raw data sets
+ 2. Summary of Data: create a basic report of summary statistics about the data sets
+ 3. Initial Findings: report any interesting initial findings
+ 4. Next Steps: get feedback on the plans for creating the prediction algorithm and Shiny app.
+ 
+ 
+## 1. Data
+ 
+The project goal is to use 3 data files of the type blogs, news and twitter for the prediction. All three data files are downloaded and placed within the project folder. 
+
+Then, initial data exploration is carried out only with partial data, around 2000 lines, to reduce execution time. Below we show how the data sources look like just with 2 lines from each of the files. 
+
+
+```{r}
+con <- file('en_US.blogs.txt', 'r')
+blogs <- readLines(con, 2)
+blogs
+close(con)
+```
+
+```{r}
+con <- file('en_US.news.txt', 'r')
+news <- readLines(con, 2)
+news
+close(con)
+```
+
+```{r}
+con <- file('en_US.twitter.txt', 'r')
+twitter <- readLines(con, 2)
+twitter
+close(con)
+```
+
+ 
+## 2. Summary of Data
+ 
+Quick summarization of word counts to assess how large the data files are with how many words, lines and average words per line. 
+
+
+```{r echo=FALSE, eval=TRUE, warning=FALSE, cache=TRUE}
+con <- file('en_US.blogs.txt', 'r')
+blogs <- readLines(con)
+close(con)
+```
+
+```{r echo=FALSE, eval=TRUE, warning=FALSE, cache=TRUE}
+con <- file('en_US.news.txt', 'r')
+news <- readLines(con)
+close(con)
+```
+
+```{r echo=FALSE, eval=TRUE, warning=FALSE, cache=TRUE}
+con <- file('en_US.twitter.txt', 'r')
+twitter <- readLines(con)
+close(con)
+```
+
+
+ 
+```{r}
+#load library
+library(stringi)
+
+# data files
+blogs_data <- stri_count_words(blogs)
+news_data <- stri_count_words(news)
+twitter_data <- stri_count_words(twitter)
+
+
+# count of words
+blogs_wordcount <-sum(blogs_data)
+news_wordcount <-sum(news_data)
+twitter_wordcount <-sum(twitter_data)
+
+wordcount <- c(blogs_wordcount, news_wordcount, twitter_wordcount)
+
+# count of lines
+blogs_lines <- length(blogs_data)
+news_lines <- length(news_data)
+twitter_lines <- length(twitter_data)
+
+lines <- c(blogs_lines, news_lines, twitter_lines)
+
+# average count of words per line
+blogs_wordcount_avg <- blogs_wordcount / blogs_lines
+news_wordcount_avg <- news_wordcount / news_lines
+twitter_wordcount_avg <- twitter_wordcount / twitter_lines
+
+wordcount_avg <- c(blogs_wordcount_avg, news_wordcount_avg, twitter_wordcount_avg)
+
+# summary of the data sources
+summary <- cbind(wordcount, lines, wordcount_avg)
+rownames(summary) <- c("Blogs", "News", "Twitter")
+
+summary
+```
+
+Therefore, blogs is the largest file in terms of words with close to 38 million words, followed closely by twitter, which shows to have close to 30 million words.
+
+
+## 3. Initial Findings
+
+Entire data is planned to be used in the subsequent stages of the project. For the pusposes of this report,only partial data is used. 
+
+Data is cleaned using the following filters - 
+
+ * lowercase conversion
+ * removing numbers
+ * removing english common stopwords
+ * removing punctuation
+ * eliminating extra white space
+ 
+With this cleaned data, bigram and trigrams are created using tokenization.
+
+wordclouds are created to visualize the n-grams.
+
+
+### Data Cleaning
+
+```{r warning=FALSE}
+# load libraries
+library(tm)
+library(ggplot2)
+library(wordcloud)
+library(RWeka)
+
+# read data
+con <- file('en_US.twitter.txt', 'r')
+mydata <- readLines(con,1000)
+mycorpus <- Corpus(VectorSource(mydata))
+close(con)
+
+# text cleaning
+
+# convert to lower case
+mycorpus <- tm_map(mycorpus, content_transformer(tolower))
+
+# remove number
+mycorpus <- tm_map(mycorpus, removeNumbers)
+
+# remove English common stopwords
+mycorpus <- tm_map(mycorpus, removeWords, stopwords('english'))
+
+# remove punctuations
+mycorpus <- tm_map(mycorpus, removePunctuation)
+
+# eliminate extra white space
+mycorpus <- tm_map(mycorpus, stripWhitespace)
+
+as.character(mycorpus[[1]])
+
+```
+
+
+### Bi-gram Visualization 
+
+```{r warning=FALSE}
+# trigrams
+minfreq_bigram <- 2
+
+token_delim <- " \\t\\r\\n.!?,;\"()"
+bitoken <- NGramTokenizer(mycorpus, Weka_control(min=2, max=2, delimiters = token_delim))
+two_word <- data.frame(table(bitoken))
+sort_two <- two_word[order(two_word$Freq, decreasing = TRUE),]
+wordcloud(sort_two$bitoken, sort_two$Freq, random.order = FALSE, scale = c(2, 0.35), min.freq = minfreq_bigram, colors = brewer.pal(8, "Dark2"), max.words = 150)
+```
+
+### Tri-gram Visualization
+
+```{r warning=FALSE}
+# trigrams
+minfreq_trigram <- 5
+
+token_delim <- " \\t\\r\\n.!?,;\"()"
+tritoken <- NGramTokenizer(mycorpus, Weka_control(min=3, max=3, delimiters = token_delim))
+three_word <- data.frame(table(tritoken))
+sort_three <- three_word[order(three_word$Freq, decreasing = TRUE),]
+wordcloud(sort_three$tritoken, sort_three$Freq, random.order = FALSE, scale = c(2, 0.35), min.freq = minfreq_trigram, colors = brewer.pal(8, "Dark2"), max.words = 150)
+
+```
+
+
+## 4. Next Steps
+
+Next steps include further detailed cleaning, analysis and building of the Shiny app. The following are planned as next steps - 
+
+ * More detailed cleaning of data
+ * Building the data models, n-grams, on complete data
+ * Building a prediction model on the n-grams
+ * Update the data model dynamicall to customize the prediction model based on user
+ 
+ 
+ 
+
+
+
+ 
+ 
